@@ -158,15 +158,30 @@ def outlier_rejection(bounding_box):
    
     return bounding_box
 
+def procesar_una_imagen_web(nombre_fichero):
+    """
+    Función para que la web ejecute el proceso sobre un solo archivo.
+    """
+    checkpoint = "d40a34821081"
+    detection = Detector(checkpoint)
+    model = load_densenet_model("Landmark_Detection/outputs/model-306.h5")
     
+    image_directory = "Object_Detection/data/val/"
+    # Creamos un DataFrame con un solo nombre para no procesar toda la carpeta
+    df_temp = pd.DataFrame([nombre_fichero])
     
+    image = read_image(image_directory + nombre_fichero)
+    landmarks = predict_vertebra(image, detection, model)
     
-   
+    # Guardamos el CSV que leerá después VisualizarCobbGOD.py
+    # Lo guardamos con una sola fila para que tu iloc[0] funcione siempre.
+    pd.DataFrame([landmarks]).to_csv('test_results/val_landmarks.csv', index=False, header=False)
     
-
-
-
-
+    # Guardamos la imagen intermedia de landmarks para control
+    save_landmarks_image(image, landmarks, 'test_results/' + nombre_fichero)
+    
+    return landmarks
+    
 if __name__ == "__main__":
     checkpoint = "d40a34821081"
     detection = Detector(checkpoint)
