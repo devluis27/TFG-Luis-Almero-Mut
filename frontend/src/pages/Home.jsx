@@ -17,10 +17,6 @@ export default function Home() {
       <p className="text-xl text-slate-500 mb-10 max-w-2xl leading-relaxed">
         Resultados clínicos en segundos mediante detección de landmarks vertebrales y modelos de regresión polinomial.
       </p>
-      
-      <button className="bg-slate-900 text-white px-10 py-4 rounded-xl font-bold text-lg flex items-center space-x-3 hover:bg-slate-800 transition shadow-xl shadow-slate-200">
-        <span>Iniciar sesión</span>
-      </button>
 
       {/* Grid de Características */}
       <div className="mt-20 grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl">

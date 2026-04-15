@@ -1,9 +1,32 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 import subprocess
 import shutil
 import os
 import json
+import jwt
+from datetime import datetime, timedelta
+from dotenv import load_dotenv 
+
+# Imports de base de datos
+from database import SessionLocal, engine
+import models
+from passlib.context import CryptContext
+
+# Creamos las tablas
+models.Base.metadata.create_all(bind=engine)
+
+# Configuración para cifrar contraseñas
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# CARGAR CLAVE
+load_dotenv("clave.env")
+
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("¡Falta la SECRET_KEY en el archivo clave.env!")
+ALGORITHM = "HS256"
 
 app = FastAPI()
 
@@ -14,75 +37,112 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- CONFIGURACIÓN DE RUTAS ABSOLUTAS ---
+# Dependencia para obtener la base de datos en cada petición
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+# --- CONFIGURACIÓN DE RUTAS ---
 BASE_DIR = "/home/luis/Escritorio/TFG-Luis-Almero-Mut"
 CORE_DIR = os.path.join(BASE_DIR, "backend", "core") 
-
 VAL_DIR = os.path.join(CORE_DIR, "Object_Detection", "data", "val")
-LABELS_DIR = os.path.join(CORE_DIR, "Object_Detection", "data", "labels")
-CSV_FILENAMES = os.path.join(LABELS_DIR, "val_filenames.csv")
+CSV_FILENAMES = os.path.join(CORE_DIR, "Object_Detection", "data", "labels", "val_filenames.csv")
 JSON_RESULTADO = os.path.join(CORE_DIR, "resultado_cobb.json")
-
-# NUEVA RUTA: Para asegurar que test_results existe
 TEST_RESULTS_DIR = os.path.join(CORE_DIR, "test_results")
 
 SCRIPT_DETECCION = os.path.join(CORE_DIR, "TestAll.py")
 SCRIPT_COBB = os.path.join(CORE_DIR, "VisualizarCobbGOD.py")
 
-@app.post("/analizar")
-async def analizar(file: UploadFile = File(...)):
-    try:
-        # 1. Preparación de la carpeta de entrada
-        if os.path.exists(VAL_DIR):
-            shutil.rmtree(VAL_DIR)
-        os.makedirs(VAL_DIR, exist_ok=True)
+# --- ENDPOINTS DE USUARIO ---
 
-        # 2. Guardar la radiografía
+@app.post("/registro")
+async def registro(usuario: dict, db: Session = Depends(get_db)):
+    # Comprobar si el correo ya existe
+    existe = db.query(models.Usuario).filter(models.Usuario.correo == usuario["correo"]).first()
+    if existe:
+        raise HTTPException(status_code=400, detail="El correo ya está registrado")
+    
+    # Cifrar la contraseña
+    hashed_pwd = pwd_context.hash(usuario["password"])
+    
+    nuevo_usuario = models.Usuario(
+        nombre=usuario["nombre"],
+        apellidos=usuario["apellidos"],
+        correo=usuario["correo"],
+        telefono=usuario["telefono"],
+        password_hash=hashed_pwd
+    )
+    
+    db.add(nuevo_usuario)
+    db.commit()
+    return {"mensaje": "Usuario creado con éxito"}
+
+
+@app.post("/login")
+async def login(credenciales: dict, db: Session = Depends(get_db)):
+    # Buscamos al usuario por correo
+    usuario = db.query(models.Usuario).filter(models.Usuario.correo == credenciales["correo"]).first()
+    
+    # Verificamos que exista y que la contraseña coincida
+    if not usuario or not pwd_context.verify(credenciales["password"], usuario.password_hash):
+        raise HTTPException(status_code=401, detail="Correo o contraseña incorrectos")
+    
+    # Si todo está bien, generamos el Token válido por 24 horas
+    expiracion = datetime.utcnow() + timedelta(hours=24)
+    token_data = {"sub": str(usuario.id), "exp": expiracion}
+    
+    # Usamos tu SECRET_KEY para firmar el token
+    token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+    
+    # Devolvemos el token al frontend
+    return {
+        "access_token": token, 
+        "token_type": "bearer", 
+        "usuario_id": usuario.id,
+        "nombre": usuario.nombre
+    }
+
+# ENDPOINT DE ANÁLISIS (CON GUARDADO)
+@app.post("/analizar")
+async def analizar(file: UploadFile = File(...), usuario_id: int = 1, db: Session = Depends(get_db)):
+    try:
+        os.makedirs(VAL_DIR, exist_ok=True)
         ruta_imagen = os.path.join(VAL_DIR, file.filename)
         with open(ruta_imagen, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
-
-        # 3. Asegurar que TODAS las carpetas necesarias existen
-        os.makedirs(LABELS_DIR, exist_ok=True)
-        os.makedirs(TEST_RESULTS_DIR, exist_ok=True) # <--- ESTO EVITA EL ERROR DE AHORA
-
-        # Actualizar val_filenames.csv
+        
+        os.makedirs(os.path.dirname(CSV_FILENAMES), exist_ok=True)
+        os.makedirs(TEST_RESULTS_DIR, exist_ok=True)
         with open(CSV_FILENAMES, "w") as f:
             f.write(file.filename)
 
-        # 4. Verificación de existencia de scripts
-        if not os.path.exists(SCRIPT_DETECCION):
-            return {"estado": "error", "mensaje": f"No se encuentra {SCRIPT_DETECCION}"}
-        
-        if not os.path.exists(SCRIPT_COBB):
-            return {"estado": "error", "mensaje": f"No se encuentra {SCRIPT_COBB}"}
-
-        # 5. Ejecutar Etapa 1: Detección
-        print(f"Ejecutando Etapa 1 en: {SCRIPT_DETECCION}")
         subprocess.run(["python", SCRIPT_DETECCION], cwd=CORE_DIR, check=True)
-
-        # 6. Ejecutar Etapa 2: Cálculo
-        print(f"Ejecutando Etapa 2 en: {SCRIPT_COBB}")
         subprocess.run(["python", SCRIPT_COBB], cwd=CORE_DIR, check=True)
 
-        # 7. Recoger el resultado
+        # Recogemos resultado y guardamos en la base de datos
         if os.path.exists(JSON_RESULTADO):
             with open(JSON_RESULTADO, "r") as f:
                 datos = json.load(f)
                 angulo_final = datos.get("cobb_angle", 0.0)
+                
+            # GUARDAMOS EN EL HISTORIAL
+            nuevo_registro = models.Historial(
+                usuario_id=usuario_id, 
+                angulo_cobb=angulo_final
+            )
+            db.add(nuevo_registro)
+            db.commit()
         else:
-            print("Error: No se generó el archivo resultado_cobb.json")
             angulo_final = 0.0
 
         return {
             "estado": "éxito",
             "angulo_simulado": angulo_final,
-            "mensaje": f"Pipeline completado para {file.filename}"
+            "mensaje": f"Análisis guardado en el historial del usuario {usuario_id}"
         }
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error en la ejecución de los scripts de Python: {e}")
-        return {"estado": "error", "mensaje": "Error en la ejecución del pipeline original."}
     except Exception as e:
-        print(f"Error inesperado: {e}")
         return {"estado": "error", "mensaje": str(e)}
