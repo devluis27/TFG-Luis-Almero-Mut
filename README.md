@@ -16,7 +16,7 @@ Este proyecto de fin de grado (TFG) consiste en una plataforma web capaz de proc
 * **Framework:** React.js
 * **Herramienta de Construcción:** Vite
 * **Gestión de Estados:** React Hooks
-* **Estilos:** CSS3 / Tailwind (opcional, según tu diseño)
+* **Estilos:** CSS3 / Tailwind
 
 ---
 
