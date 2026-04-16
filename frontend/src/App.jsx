@@ -4,6 +4,8 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Perfil from './pages/Perfil';
+import Historial from './pages/Historial';
 
 function App() {
   return (
@@ -16,6 +18,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} /> 
+            <Route path="/perfil" element={<Perfil />} />
+            <Route path="/historial" element={<Historial />} />
           </Routes>
         </main>
       </div>

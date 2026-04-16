@@ -22,6 +22,7 @@ export default function Login() {
         const data = await response.json();
         localStorage.setItem('token', data.access_token);
         localStorage.setItem('usuario_id', data.usuario_id);
+        localStorage.setItem('nombre', data.nombre); // <-- LÍNEA AÑADIDA
         navigate('/dashboard');
       } else {
         setError('Correo o contraseña incorrectos');
