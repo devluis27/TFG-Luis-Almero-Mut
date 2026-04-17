@@ -9,6 +9,7 @@ Este proyecto de fin de grado (TFG) consiste en una plataforma web capaz de proc
 * **Lenguaje:** Python 3.7
 * **Framework API:** FastAPI
 * **Servidor ASGI:** Uvicorn
+* **Base de Datos:** SQLite
 * **IA/ML:** TensorFlow 1.15, Keras, Luminoth
 * **Procesamiento de Datos:** OpenCV, Pandas, NumPy, Math
 
@@ -85,6 +86,15 @@ La aplicación web se abrirá normalmente en `http://localhost:5173`.
 
 ---
 
+## 🗄️ Gestión de la Base de Datos
+El sistema utiliza SQLite para la persistencia de usuarios y el historial de mediciones. Y se pueden consultar los datos directamente desde la terminal mediante el siguiente comando:
+```bash
+cd backend
+sqlite3 spine_project.db
+```
+
+---
+
 ## 📂 Estructura del Proyecto
 
 * `/backend`: Contiene la lógica de FastAPI (`main.py`).
@@ -92,14 +102,3 @@ La aplicación web se abrirá normalmente en `http://localhost:5173`.
 * `/frontend`: Código fuente de la aplicación React.
 * `/test_results`: Almacena temporalmente los resultados de las inferencias y el archivo JSON de salida.
 
----
-
-## 📝 Uso del Sistema
-
-1.  Accede a la URL del Frontend.
-2.  Sube una radiografía en formato `.jpg` o `.png`.
-3.  Haz clic en el botón **"Calcular Ángulo"**.
-4.  El sistema ejecutará el pipeline:
-    * **Etapa 1:** Detección de vértebras y landmarks.
-    * **Etapa 2:** Cálculo trigonométrico del Ángulo de Cobb.
-5.  El resultado aparecerá automáticamente en la tarjeta de resultados de la web.
