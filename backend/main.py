@@ -7,6 +7,7 @@ import shutil
 import os
 import json
 import jwt
+import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv 
 
@@ -147,10 +148,11 @@ async def analizar(file: UploadFile = File(...), usuario_id: int = 1, db: Sessio
         else:
             angulo_final = 0.0
 
+        timestamp = int(time.time())
         return {
             "estado": "éxito",
             "angulo_simulado": angulo_final,
-            "imagen_procesada": f"http://127.0.0.1:8000/resultados/{file.filename}",
+            "imagen_procesada": f"http://127.0.0.1:8000/resultados/procesadas/RESULTADO_{file.filename}?t={timestamp}",
             "mensaje": f"Análisis guardado"
         }
 
