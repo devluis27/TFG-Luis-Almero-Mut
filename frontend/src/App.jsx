@@ -6,6 +6,7 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Perfil from './pages/Perfil';
 import Historial from './pages/Historial';
+import LaboratorioManual from './pages/LaboratorioManual'; // Importamos la nueva sección
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} /> 
             <Route path="/perfil" element={<Perfil />} />
             <Route path="/historial" element={<Historial />} />
+            <Route path="/laboratorio" element={<LaboratorioManual />} />
           </Routes>
         </main>
       </div>

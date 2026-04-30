@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Response
 from utils_informe import generar_pdf_escoliosis
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -11,10 +11,10 @@ import jwt
 import time
 from datetime import datetime, timedelta
 from dotenv import load_dotenv 
-
 from database import SessionLocal, engine
 import models
 from passlib.context import CryptContext
+from core.calculo_manual import process_manual_measurement
 
 models.Base.metadata.create_all(bind=engine)
 
@@ -186,39 +186,152 @@ async def analizar(file: UploadFile = File(...), usuario_id: int = 1, db: Sessio
 async def obtener_historial(usuario_id: int, db: Session = Depends(get_db)):
     registros = db.query(models.Historial).filter(
         models.Historial.usuario_id == usuario_id
-    ).order_by(models.Historial.fecha_medicion.desc()).all()
-    
-    return registros
+    ).order_by(models.Historial.fecha_medicion.asc()).all()
+
+    return [
+        {
+            "id": r.id,
+            "angulo_cobb": r.angulo_cobb,
+            # Fecha serializada como string ISO sin sufijo Z → hora local tal cual está en BD
+            "fecha_medicion": r.fecha_medicion.strftime("%Y-%m-%dT%H:%M:%S") if r.fecha_medicion else None,
+        }
+        for r in registros
+    ]
 
 @app.get("/descargar-informe")
-async def descargar_informe(usuario_id: int, angulo: float, nivel: str, mensaje: str, imagen: str, db: Session = Depends(get_db)):
-    # Buscamos los datos del usuario en la BD
+async def descargar_informe(
+    usuario_id: int,
+    angulo: float,
+    nivel: str,
+    mensaje: str,
+    imagen: str,
+    recomendacion: str = "",
+    db: Session = Depends(get_db)
+):
     usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
     if not usuario:
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
-
-    # Ruta de la imagen procesada
+ 
     ruta_completa_imagen = os.path.join(TEST_RESULTS_DIR, "procesadas", imagen)
-    
     if not os.path.exists(ruta_completa_imagen):
         raise HTTPException(status_code=404, detail="La imagen no existe en el servidor")
-        
+ 
     try:
-        pdf_content = generar_pdf_escoliosis(
+        pdf_bytes = generar_pdf_escoliosis(
             nombre=usuario.nombre,
             apellidos=usuario.apellidos,
             fecha_nacimiento=usuario.fecha_nacimiento.strftime("%d/%m/%Y") if usuario.fecha_nacimiento else None,
             angulo=angulo,
             nivel=nivel,
             mensaje=mensaje,
-            ruta_imagen=ruta_completa_imagen
+            ruta_imagen=ruta_completa_imagen,
+            metodo="ia",
+            recomendacion=recomendacion,
         )
-        
         return Response(
-            content=pdf_content,
+            content=pdf_bytes,
             media_type="application/pdf",
-            headers={"Content-Disposition": f"attachment; filename=Informe_{usuario.nombre}.pdf"}
+            headers={
+                "Content-Disposition": f"attachment; filename=Informe_{usuario.nombre}.pdf"
+            }
         )
     except Exception as e:
-        print(f"Error generado: {e}")
         raise HTTPException(status_code=500, detail=f"Error interno generando el PDF: {str(e)}")
+
+@app.post("/medicion-manual")
+async def medicion_manual(
+    imagen: UploadFile = File(...),
+    puntos_superior: str = Form(...),
+    puntos_inferior: str = Form(...),
+    usuario_id: int = Form(default=0),
+):
+    import tempfile, base64, json as _json
+ 
+    top = _json.loads(puntos_superior)
+    bot = _json.loads(puntos_inferior)
+ 
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+        tmp.write(await imagen.read())
+        tmp_path = tmp.name
+ 
+    # Ruta donde se guardará la imagen anotada para el PDF posterior
+    os.makedirs(os.path.join(TEST_RESULTS_DIR, "procesadas"), exist_ok=True)
+    output_path = os.path.join(
+        TEST_RESULTS_DIR, "procesadas", f"SUPERVISADO_{usuario_id}.jpg"
+    ) if usuario_id else None
+ 
+    result = process_manual_measurement(tmp_path, top, bot, output_path=output_path)
+    os.unlink(tmp_path)
+ 
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+ 
+    return {
+        "cobb_angle": result["cobb_angle"],
+        "imagen_anotada": base64.b64encode(result["annotated_image"]).decode()
+    }
+
+@app.get("/descargar-informe-supervisado")
+async def descargar_informe_supervisado(
+    usuario_id: int,
+    angulo: float,
+    nivel: str,
+    mensaje: str,
+    recomendacion: str = "",
+    db: Session = Depends(get_db)
+):
+    import base64
+
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    ruta_imagen_anotada = os.path.join(
+        TEST_RESULTS_DIR, "procesadas", f"SUPERVISADO_{usuario_id}.jpg"
+    )
+
+    # Debug: muestra en consola si el archivo existe
+    print(f"[PDF] Buscando imagen en: {ruta_imagen_anotada}")
+    print(f"[PDF] Existe: {os.path.exists(ruta_imagen_anotada)}")
+
+    try:
+        pdf_bytes = generar_pdf_escoliosis(
+            nombre=usuario.nombre,
+            apellidos=usuario.apellidos,
+            fecha_nacimiento=usuario.fecha_nacimiento.strftime("%d/%m/%Y") if usuario.fecha_nacimiento else None,
+            angulo=angulo,
+            nivel=nivel,
+            mensaje=mensaje,
+            ruta_imagen=ruta_imagen_anotada,
+            metodo="supervisado",
+            recomendacion=recomendacion,
+        )
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename=Informe_Supervisado_{usuario.nombre}.pdf"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando PDF: {str(e)}")
+
+@app.post("/guardar-medicion-manual")
+async def guardar_manual(datos: dict, db: Session = Depends(get_db)):
+    usuario_id = datos.get("usuario_id")
+    angulo = datos.get("angulo")
+
+    if not usuario_id or angulo is None:
+        raise HTTPException(status_code=400, detail="Faltan datos obligatorios")
+
+    try:
+        nueva_medicion = models.Historial(
+            usuario_id=usuario_id,
+            angulo_cobb=float(angulo)
+        )
+        db.add(nueva_medicion)
+        db.commit()
+        return {"estado": "éxito", "mensaje": "Medición guardada en el historial"}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Error al guardar: {str(e)}")

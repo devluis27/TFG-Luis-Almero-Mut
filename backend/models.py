@@ -12,10 +12,9 @@ class Usuario(Base):
     correo = Column(String, unique=True, index=True)
     telefono = Column(String)
     fecha_nacimiento = Column(Date, nullable=True)
-    password_hash = Column(String) # Guardaremos la clave cifrada
-    fecha_registro = Column(DateTime, default=datetime.datetime.utcnow)
+    password_hash = Column(String)
+    fecha_registro = Column(DateTime, default=datetime.datetime.now)
 
-    # Relación: Un usuario tiene múltiples registros en su historial
     historial = relationship("Historial", back_populates="propietario")
 
 class Historial(Base):
@@ -24,7 +23,6 @@ class Historial(Base):
     id = Column(Integer, primary_key=True, index=True)
     usuario_id = Column(Integer, ForeignKey("usuarios.id"))
     angulo_cobb = Column(Float)
-    fecha_medicion = Column(DateTime, default=datetime.datetime.utcnow)
+    fecha_medicion = Column(DateTime, default=datetime.datetime.now)
 
-    # Relación inversa
     propietario = relationship("Usuario", back_populates="historial")
