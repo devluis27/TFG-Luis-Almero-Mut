@@ -232,3 +232,7 @@ val_landmarks.csv
 # Archivos del sistema operativo
 .DS_Store
 Thumbs.db
+
+#Archivos automaticos
+resultado_cobb.json
+val_filenames.csv
