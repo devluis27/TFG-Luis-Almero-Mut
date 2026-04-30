@@ -12,6 +12,7 @@ export default function Register() {
     apellidos: '',
     correo: '',
     telefono: '',
+    fecha_nacimiento: '',
     password: ''
   });
 
@@ -80,7 +81,7 @@ export default function Register() {
                 value={formData.apellidos}
                 onChange={manejarCambio}
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition" 
-                placeholder="Gimenez" 
+                placeholder="Giménez" 
               />
             </div>
           </div>
@@ -98,16 +99,29 @@ export default function Register() {
             />
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">Teléfono</label>
-            <input 
-              name="telefono"
-              type="tel" 
-              value={formData.telefono}
-              onChange={manejarCambio}
-              className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition" 
-              placeholder="+34 600 000 000" 
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">Teléfono</label>
+              <input 
+                name="telefono"
+                type="tel" 
+                value={formData.telefono}
+                onChange={manejarCambio}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition" 
+                placeholder="+34 600 000 000" 
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1 ml-1">Fecha de Nacimiento</label>
+              <input 
+                required
+                name="fecha_nacimiento"
+                type="date" 
+                value={formData.fecha_nacimiento}
+                onChange={manejarCambio}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white outline-none transition text-slate-700" 
+              />
+            </div>
           </div>
 
           <div>
@@ -132,7 +146,7 @@ export default function Register() {
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-top border-slate-100 text-center">
+        <div className="mt-8 pt-6 border-t border-slate-100 text-center">
           <p className="text-slate-500 text-sm">
             ¿Ya tienes una cuenta? {' '}
             <Link to="/login" className="text-emerald-600 font-bold hover:text-emerald-500 transition">

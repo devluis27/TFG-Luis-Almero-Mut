@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey, Date
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -11,6 +11,7 @@ class Usuario(Base):
     apellidos = Column(String)
     correo = Column(String, unique=True, index=True)
     telefono = Column(String)
+    fecha_nacimiento = Column(Date, nullable=True)
     password_hash = Column(String) # Guardaremos la clave cifrada
     fecha_registro = Column(DateTime, default=datetime.datetime.utcnow)
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Upload, Zap, Loader2, CheckCircle2, AlertCircle, Info, Stethoscope, Maximize2, X } from 'lucide-react';
+import { Upload, Zap, Loader2, CheckCircle2, AlertCircle, Info, Stethoscope, Maximize2, X, Download } from 'lucide-react';
 
 const obtenerDiagnostico = (angulo) => {
   const grados = parseFloat(angulo);
@@ -120,6 +120,27 @@ export default function Dashboard() {
   };
 
   const infoClinica = resultado ? obtenerDiagnostico(resultado.angulo_simulado) : null;
+
+  const manejarDescargaPDF = () => {
+    if (!resultado || !infoClinica || !imagenProcesada) return;
+
+    // Obtenemos el ID del usuario del localStorage
+    const usuarioId = localStorage.getItem('usuario_id');
+    
+    // Extraemos el nombre del archivo de la imagen
+    const urlObj = new URL(imagenProcesada);
+    const nombreImagen = urlObj.pathname.split('/').pop();
+
+    // Construimos la URL enviando usuario_id
+    const url = `http://127.0.0.1:8000/descargar-informe?` + 
+                `usuario_id=${usuarioId}&` +
+                `angulo=${resultado.angulo_simulado}&` +
+                `nivel=${encodeURIComponent(infoClinica.nivel)}&` +
+                `mensaje=${encodeURIComponent(infoClinica.mensaje)}&` +
+                `imagen=${encodeURIComponent(nombreImagen)}`;
+
+    window.open(url, '_blank');
+  };
 
   return (
     <>
@@ -269,6 +290,14 @@ export default function Dashboard() {
                       {infoClinica.recomendacion}
                     </p>
                   </div>
+
+                  <button 
+                    onClick={manejarDescargaPDF}
+                    className="w-full mt-4 py-3 rounded-xl font-bold flex items-center justify-center transition-all bg-slate-900 text-white hover:bg-slate-800 shadow-md"
+                  >
+                    <Download className="mr-2" size={18} />
+                    Descargar Informe Clínico (PDF)
+                  </button>
                 </div>
               </div>
             )}

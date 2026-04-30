@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Depends, HTTPException, Response
+from utils_informe import generar_pdf_escoliosis
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -64,11 +65,23 @@ async def registro(usuario: dict, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="El correo ya está registrado")
     
     hashed_pwd = pwd_context.hash(usuario["password"])
+    
+    # Procesamiento de la fecha de nacimiento
+    fecha_nac_str = usuario.get("fecha_nacimiento")
+    fecha_nac = None
+    if fecha_nac_str:
+        try:
+            # Convertimos el string (YYYY-MM-DD) a un objeto de fecha
+            fecha_nac = datetime.strptime(fecha_nac_str, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Formato de fecha inválido. Debe ser YYYY-MM-DD")
+
     nuevo_usuario = models.Usuario(
         nombre=usuario["nombre"],
         apellidos=usuario["apellidos"],
         correo=usuario["correo"],
         telefono=usuario["telefono"],
+        fecha_nacimiento=fecha_nac,
         password_hash=hashed_pwd
     )
     db.add(nuevo_usuario)
@@ -101,7 +114,8 @@ async def obtener_usuario(usuario_id: int, db: Session = Depends(get_db)):
         "nombre": usuario.nombre,
         "apellidos": usuario.apellidos,
         "correo": usuario.correo,
-        "telefono": usuario.telefono
+        "telefono": usuario.telefono,
+        "fecha_nacimiento": usuario.fecha_nacimiento.strftime("%Y-%m-%d") if usuario.fecha_nacimiento else None
     }
 
 @app.put("/actualizar-perfil/{usuario_id}")
@@ -114,6 +128,15 @@ async def actualizar_perfil(usuario_id: int, datos: dict, db: Session = Depends(
     usuario.apellidos = datos.get("apellidos", usuario.apellidos)
     usuario.correo = datos.get("correo", usuario.correo)
     usuario.telefono = datos.get("telefono", usuario.telefono)
+    
+    # Procesar la fecha de nacimiento actualizada
+    fecha_nac_str = datos.get("fecha_nacimiento")
+    if fecha_nac_str:
+        try:
+            from datetime import datetime # Asegúrate de que esto esté importado al inicio de main.py
+            usuario.fecha_nacimiento = datetime.strptime(fecha_nac_str, "%Y-%m-%d").date()
+        except ValueError:
+            pass # Si el formato no es válido, simplemente no lo actualizamos
     
     db.commit()
     return {"mensaje": "Perfil actualizado", "nombre": usuario.nombre}
@@ -166,3 +189,36 @@ async def obtener_historial(usuario_id: int, db: Session = Depends(get_db)):
     ).order_by(models.Historial.fecha_medicion.desc()).all()
     
     return registros
+
+@app.get("/descargar-informe")
+async def descargar_informe(usuario_id: int, angulo: float, nivel: str, mensaje: str, imagen: str, db: Session = Depends(get_db)):
+    # Buscamos los datos del usuario en la BD
+    usuario = db.query(models.Usuario).filter(models.Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    # Ruta de la imagen procesada
+    ruta_completa_imagen = os.path.join(TEST_RESULTS_DIR, "procesadas", imagen)
+    
+    if not os.path.exists(ruta_completa_imagen):
+        raise HTTPException(status_code=404, detail="La imagen no existe en el servidor")
+        
+    try:
+        pdf_content = generar_pdf_escoliosis(
+            nombre=usuario.nombre,
+            apellidos=usuario.apellidos,
+            fecha_nacimiento=usuario.fecha_nacimiento.strftime("%d/%m/%Y") if usuario.fecha_nacimiento else None,
+            angulo=angulo,
+            nivel=nivel,
+            mensaje=mensaje,
+            ruta_imagen=ruta_completa_imagen
+        )
+        
+        return Response(
+            content=pdf_content,
+            media_type="application/pdf",
+            headers={"Content-Disposition": f"attachment; filename=Informe_{usuario.nombre}.pdf"}
+        )
+    except Exception as e:
+        print(f"Error generado: {e}")
+        raise HTTPException(status_code=500, detail=f"Error interno generando el PDF: {str(e)}")

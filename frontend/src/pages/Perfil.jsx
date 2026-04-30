@@ -10,7 +10,8 @@ export default function Perfil() {
     nombre: '',
     apellidos: '',
     correo: '',
-    telefono: ''
+    telefono: '',
+    fecha_nacimiento: ''
   });
   const [cargando, setCargando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -36,7 +37,8 @@ export default function Perfil() {
           nombre: respuesta.data.nombre || '',
           apellidos: respuesta.data.apellidos || '',
           correo: respuesta.data.correo || '',
-          telefono: respuesta.data.telefono || ''
+          telefono: respuesta.data.telefono || '',
+          fecha_nacimiento: respuesta.data.fecha_nacimiento || ''
         });
       } catch (err) {
         setError("No se pudo conectar con el servidor para obtener tu perfil.");
@@ -176,18 +178,33 @@ export default function Perfil() {
             />
           </div>
 
-          <div className="group">
-            <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-emerald-600">
-              Teléfono de Contacto
-            </label>
-            <input 
-              name="telefono"
-              type="tel" 
-              value={formData.telefono || ''}
-              onChange={manejarCambio}
-              placeholder="No registrado"
-              className="w-full p-4 bg-slate-50 border border-slate-100 border-l-4 border-l-transparent rounded-2xl focus:border-l-emerald-500 focus:bg-white focus:shadow-md outline-none transition-all font-semibold text-slate-700 hover:bg-slate-100/50" 
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="group">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-emerald-600">
+                Teléfono de Contacto
+              </label>
+              <input 
+                name="telefono"
+                type="tel" 
+                value={formData.telefono || ''}
+                onChange={manejarCambio}
+                placeholder="No registrado"
+                className="w-full p-4 bg-slate-50 border border-slate-100 border-l-4 border-l-transparent rounded-2xl focus:border-l-emerald-500 focus:bg-white focus:shadow-md outline-none transition-all font-semibold text-slate-700 hover:bg-slate-100/50" 
+              />
+            </div>
+
+            <div className="group">
+              <label className="block text-xs font-black text-slate-400 uppercase tracking-widest mb-2 ml-1 transition-colors group-focus-within:text-emerald-600">
+                Fecha de Nacimiento
+              </label>
+              <input 
+                name="fecha_nacimiento"
+                type="date" 
+                value={formData.fecha_nacimiento || ''}
+                onChange={manejarCambio}
+                className="w-full p-4 bg-slate-50 border border-slate-100 border-l-4 border-l-transparent rounded-2xl focus:border-l-emerald-500 focus:bg-white focus:shadow-md outline-none transition-all font-semibold text-slate-700 hover:bg-slate-100/50" 
+              />
+            </div>
           </div>
 
           <button 
