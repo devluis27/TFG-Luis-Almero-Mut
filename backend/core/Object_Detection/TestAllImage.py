@@ -112,11 +112,19 @@ def predict_vertebra(image, detection):
 if __name__ == "__main__":
     checkpoint = "d40a34821081"
     detection = Detector(checkpoint)
-    image_path = "data/cropped test/"
-    output_path = "pred crop1/"
-    #image = read_image(image_path + '01-July-2019-50.jpg')
-    #pred_image= predict_vertebra (image,detection)
-    save_image(image_path, detection, output_path)
+
+    # 1. Usar ruta donde estan las imagenes de prueba
+    image_path = "data/val/" 
+
+    # 2. Carga una imagen concreta de tu carpeta de validación
+    image = read_image(image_path + '0008.jpg')
+
+    # 3. Llama a la función predict_vertebra
+    pred_image = predict_vertebra(image, detection)
+
+    # 4. Guarda la imagen resultante directamente
+    cv2.imwrite('resultado_fase1_memoria.jpg', pred_image)
+    print("¡Imagen guardada como resultado_fase1_memoria.jpg!")
     
   
      

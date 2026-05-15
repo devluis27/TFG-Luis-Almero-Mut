@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Upload, Zap, Loader2, CheckCircle2, AlertCircle, Info, Stethoscope, Maximize2, X, Download } from 'lucide-react';
+import { Upload, Zap, Loader2, CheckCircle2, AlertCircle, Info, Stethoscope, Maximize2, X, Download, Save } from 'lucide-react';
 
 const obtenerDiagnostico = (angulo) => {
   const grados = parseFloat(angulo);
@@ -58,8 +58,8 @@ export default function Dashboard() {
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
   const [nombreUsuario, setNombreUsuario] = useState('');
-  
-  // NUEVO ESTADO: Controla qué imagen se muestra en pantalla completa
+  const [guardando, setGuardando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
 
   useEffect(() => {
@@ -129,7 +129,7 @@ export default function Dashboard() {
     
     // Extraemos el nombre del archivo de la imagen
     const urlObj = new URL(imagenProcesada);
-    const nombreImagen = urlObj.pathname.split('/').pop();
+    const nombreImagen = decodeURIComponent(urlObj.pathname.split('/').pop());
 
     // Construimos la URL enviando usuario_id
     const url = `http://127.0.0.1:8000/descargar-informe?` + 
@@ -140,6 +140,22 @@ export default function Dashboard() {
                 `imagen=${encodeURIComponent(nombreImagen)}`;
 
     window.open(url, '_blank');
+  };
+
+  const guardarEnHistorial = async () => {
+    setGuardando(true);
+    try {
+      await axios.post('http://127.0.0.1:8000/guardar-medicion-manual', {
+        usuario_id: localStorage.getItem('usuario_id'),
+        angulo: resultado.angulo_simulado,
+      });
+      setGuardado(true);
+      setTimeout(() => setGuardado(false), 3000);
+    } catch { 
+      setError("Error al guardar en el historial."); 
+    } finally { 
+      setGuardando(false); 
+    }
   };
 
   return (
@@ -291,13 +307,33 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  <button 
-                    onClick={manejarDescargaPDF}
-                    className="w-full mt-4 py-3 rounded-xl font-bold flex items-center justify-center transition-all bg-slate-900 text-white hover:bg-slate-800 shadow-md"
-                  >
-                    <Download className="mr-2" size={18} />
-                    Descargar Informe Clínico (PDF)
-                  </button>
+                  {/* --- Zona de botones --- */}
+                  <div className="mt-4 flex flex-col gap-2">
+                    
+                    {/* Botón Guardar en Historial */}
+                    <button
+                      onClick={guardarEnHistorial}
+                      disabled={guardando || guardado}
+                      className={`w-full py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md ${
+                        guardado    ? 'bg-emerald-500 text-white shadow-emerald-200'
+                        : guardando ? 'bg-slate-200 text-slate-400 cursor-wait'
+                        : 'bg-slate-900 text-white hover:bg-emerald-600 shadow-slate-200'
+                      }`}
+                    >
+                      {guardando ? <Loader2 size={18} className="animate-spin"/> : guardado ? <CheckCircle2 size={18}/> : <Save size={18}/>}
+                      {guardado ? 'Guardado' : guardando ? 'Guardando…' : 'Guardar en Historial'}
+                    </button>
+
+                    {/* Botón Descargar PDF */}
+                    <button 
+                      onClick={manejarDescargaPDF}
+                      className="w-full py-3 rounded-xl font-bold flex items-center justify-center transition-all bg-white text-slate-900 border-2 border-slate-200 hover:bg-slate-50 shadow-sm"
+                    >
+                      <Download className="mr-2" size={18} />
+                      Descargar Informe Clínico (PDF)
+                    </button>
+                    
+                  </div>
                 </div>
               </div>
             )}

@@ -9,6 +9,7 @@ import os
 import json
 import jwt
 import time
+import cv2
 from datetime import datetime, timedelta
 from dotenv import load_dotenv 
 from database import SessionLocal, engine
@@ -148,6 +149,17 @@ async def analizar(file: UploadFile = File(...), usuario_id: int = 1, db: Sessio
         ruta_imagen = os.path.join(VAL_DIR, file.filename)
         with open(ruta_imagen, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
+
+        
+        img = cv2.imread(ruta_imagen)
+        if img is not None:
+            h_img, w_img = img.shape[:2]
+            if max(h_img, w_img) > 1000:
+                scale = 1000 / max(h_img, w_img)
+                new_h = int(h_img * scale)
+                new_w = int(w_img * scale)
+                img_resized = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
+                cv2.imwrite(ruta_imagen, img_resized)
         
         os.makedirs(os.path.dirname(CSV_FILENAMES), exist_ok=True)
         os.makedirs(TEST_RESULTS_DIR, exist_ok=True)
@@ -162,12 +174,6 @@ async def analizar(file: UploadFile = File(...), usuario_id: int = 1, db: Sessio
                 datos = json.load(f)
                 angulo_final = datos.get("cobb_angle", 0.0)
                 
-            nuevo_registro = models.Historial(
-                usuario_id=usuario_id, 
-                angulo_cobb=angulo_final
-            )
-            db.add(nuevo_registro)
-            db.commit()
         else:
             angulo_final = 0.0
 

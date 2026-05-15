@@ -15,15 +15,15 @@ import {
 ───────────────────────────────────────── */
 const colorPorAngulo = (g) => {
   if (g < 10)  return { text: 'text-slate-500',   dot: '#64748b', bg: 'bg-slate-100'  };
-  if (g < 25)  return { text: 'text-emerald-600', dot: '#10b981', bg: 'bg-emerald-50' };
-  if (g < 45)  return { text: 'text-amber-600',   dot: '#f59e0b', bg: 'bg-amber-50'   };
+  if (g < 20)  return { text: 'text-emerald-600', dot: '#10b981', bg: 'bg-emerald-50' };
+  if (g < 40)  return { text: 'text-amber-600',   dot: '#f59e0b', bg: 'bg-amber-50'   };
   return        { text: 'text-red-600',            dot: '#ef4444', bg: 'bg-red-50'     };
 };
 
 const nivelPorAngulo = (g) => {
   if (g < 10)  return 'Normal';
-  if (g < 25)  return 'Leve';
-  if (g < 45)  return 'Moderada';
+  if (g < 20)  return 'Leve';
+  if (g < 40)  return 'Moderada';
   return        'Severa';
 };
 
@@ -233,10 +233,10 @@ export default function Historial() {
                   {/* Líneas de referencia clínicas */}
                   <ReferenceLine y={10} stroke="#64748b" strokeDasharray="6 3" strokeWidth={1}
                     label={{ value:'10°', position:'insideTopRight', fontSize:10, fill:'#94a3b8', fontWeight:700 }}/>
-                  <ReferenceLine y={25} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1}
-                    label={{ value:'25°', position:'insideTopRight', fontSize:10, fill:'#f59e0b', fontWeight:700 }}/>
-                  <ReferenceLine y={45} stroke="#ef4444" strokeDasharray="6 3" strokeWidth={1}
-                    label={{ value:'45°', position:'insideTopRight', fontSize:10, fill:'#ef4444', fontWeight:700 }}/>
+                  <ReferenceLine y={20} stroke="#f59e0b" strokeDasharray="6 3" strokeWidth={1}
+                    label={{ value:'20°', position:'insideTopRight', fontSize:10, fill:'#f59e0b', fontWeight:700 }}/>
+                  <ReferenceLine y={40} stroke="#ef4444" strokeDasharray="6 3" strokeWidth={1}
+                    label={{ value:'40°', position:'insideTopRight', fontSize:10, fill:'#ef4444', fontWeight:700 }}/>
 
                   <XAxis
                     dataKey="fecha_medicion"
