@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { Upload, Zap, Loader2, CheckCircle2, AlertCircle, Info, Stethoscope, Maximize2, X, Download, Save } from 'lucide-react';
+import { useAnalisis } from '../context/AnalisisContext';
 
 const obtenerDiagnostico = (angulo) => {
   const grados = parseFloat(angulo);
-  
   if (grados < 10) {
     return {
       nivel: "Normal / Asimetría",
@@ -51,16 +51,21 @@ const obtenerDiagnostico = (angulo) => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [archivo, setArchivo] = useState(null);
-  const [vistaPrevia, setVistaPrevia] = useState(null);
-  const [imagenProcesada, setImagenProcesada] = useState(null);
-  const [cargando, setCargando] = useState(false);
-  const [resultado, setResultado] = useState(null);
-  const [error, setError] = useState(null);
   const [nombreUsuario, setNombreUsuario] = useState('');
-  const [guardando, setGuardando] = useState(false);
-  const [guardado, setGuardado] = useState(false);
   const [imagenAmpliada, setImagenAmpliada] = useState(null);
+
+  // Estado persistente desde el contexto global
+  const {
+    archivo, setArchivo,
+    vistaPrevia, setVistaPrevia,
+    imagenProcesada, setImagenProcesada,
+    cargando, setCargando,
+    resultado, setResultado,
+    error, setError,
+    guardando, setGuardando,
+    guardado, setGuardado,
+    limpiarTodo,
+  } = useAnalisis();
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -76,18 +81,11 @@ export default function Dashboard() {
     const file = e.target.files[0];
     if (file) {
       setArchivo(file);
-      setVistaPrevia(URL.createObjectURL(file)); 
-      setImagenProcesada(null); 
+      setVistaPrevia(URL.createObjectURL(file));
+      setImagenProcesada(null);
       setResultado(null);
       setError(null);
     }
-  };
-
-  const limpiarTodo = () => {
-    setArchivo(null); 
-    setVistaPrevia(null); 
-    setImagenProcesada(null);
-    setResultado(null);
   };
 
   const analizarImagen = async () => {
@@ -101,11 +99,13 @@ export default function Dashboard() {
     formData.append("file", archivo);
 
     try {
-      const respuesta = await axios.post(`http://127.0.0.1:8000/analizar?usuario_id=${usuarioId}`, formData, {
-        headers: { "Content-Type": "multipart/form-data", "Authorization": `Bearer ${token}` }
-      });
+      const respuesta = await axios.post(
+        `http://127.0.0.1:8000/analizar?usuario_id=${usuarioId}`,
+        formData,
+        { headers: { "Content-Type": "multipart/form-data", "Authorization": `Bearer ${token}` } }
+      );
       setResultado(respuesta.data);
-      setImagenProcesada(respuesta.data.imagen_procesada); 
+      setImagenProcesada(respuesta.data.imagen_procesada);
     } catch (err) {
       if (err.response && err.response.status === 401) {
         setError("Sesión caducada. Por favor, vuelve a iniciar sesión.");
@@ -123,22 +123,15 @@ export default function Dashboard() {
 
   const manejarDescargaPDF = () => {
     if (!resultado || !infoClinica || !imagenProcesada) return;
-
-    // Obtenemos el ID del usuario del localStorage
     const usuarioId = localStorage.getItem('usuario_id');
-    
-    // Extraemos el nombre del archivo de la imagen
     const urlObj = new URL(imagenProcesada);
     const nombreImagen = decodeURIComponent(urlObj.pathname.split('/').pop());
-
-    // Construimos la URL enviando usuario_id
-    const url = `http://127.0.0.1:8000/descargar-informe?` + 
-                `usuario_id=${usuarioId}&` +
-                `angulo=${resultado.angulo_simulado}&` +
-                `nivel=${encodeURIComponent(infoClinica.nivel)}&` +
-                `mensaje=${encodeURIComponent(infoClinica.mensaje)}&` +
-                `imagen=${encodeURIComponent(nombreImagen)}`;
-
+    const url = `http://127.0.0.1:8000/descargar-informe?` +
+      `usuario_id=${usuarioId}&` +
+      `angulo=${resultado.angulo_simulado}&` +
+      `nivel=${encodeURIComponent(infoClinica.nivel)}&` +
+      `mensaje=${encodeURIComponent(infoClinica.mensaje)}&` +
+      `imagen=${encodeURIComponent(nombreImagen)}`;
     window.open(url, '_blank');
   };
 
@@ -151,10 +144,10 @@ export default function Dashboard() {
       });
       setGuardado(true);
       setTimeout(() => setGuardado(false), 3000);
-    } catch { 
-      setError("Error al guardar en el historial."); 
-    } finally { 
-      setGuardando(false); 
+    } catch {
+      setError("Error al guardar en el historial.");
+    } finally {
+      setGuardando(false);
     }
   };
 
@@ -167,14 +160,22 @@ export default function Dashboard() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
+
           {/* --- LADO IZQUIERDO: RADIOGRAFÍAS --- */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-4">
             <div className={`relative border-2 border-dashed rounded-3xl p-4 transition-all bg-white flex flex-col items-center justify-center min-h-[65vh] ${archivo ? 'border-emerald-500' : 'border-slate-200'}`}>
-              
+
               {vistaPrevia && !imagenProcesada ? (
                 <div className="relative w-full h-full flex flex-col items-center animate-in fade-in zoom-in duration-300">
-                  <div 
+                  {/* Indicador de análisis en curso si cargando */}
+                  {cargando && (
+                    <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center z-10 gap-3">
+                      <Loader2 size={40} className="animate-spin text-emerald-500" />
+                      <p className="text-slate-600 font-semibold text-sm">Analizando radiografía...</p>
+                      <p className="text-slate-400 text-xs">Puedes navegar y volver cuando termine</p>
+                    </div>
+                  )}
+                  <div
                     className="relative group cursor-pointer"
                     onClick={() => setImagenAmpliada(vistaPrevia)}
                   >
@@ -190,11 +191,11 @@ export default function Dashboard() {
               ) : vistaPrevia && imagenProcesada ? (
                 <div className="w-full flex flex-col items-center animate-in fade-in slide-in-from-bottom-4 duration-500 h-full justify-center">
                   <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 w-full mb-4">
-                    
+
                     {/* Original */}
                     <div className="flex flex-col items-center bg-slate-50 p-4 rounded-3xl border border-slate-100">
                       <span className="text-xs font-black text-slate-400 uppercase tracking-widest mb-3">Original</span>
-                      <div 
+                      <div
                         className="relative group cursor-pointer w-full flex justify-center"
                         onClick={() => setImagenAmpliada(vistaPrevia)}
                       >
@@ -204,14 +205,14 @@ export default function Dashboard() {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Procesada */}
                     <div className="flex flex-col items-center bg-emerald-50/30 p-4 rounded-3xl border-2 border-emerald-100 relative">
                       <div className="absolute -top-3 bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-1 rounded-full shadow-md z-10">
                         Resultado IA
                       </div>
                       <span className="text-xs font-black text-emerald-600 uppercase tracking-widest mb-3 mt-1">Detección de Vértebras</span>
-                      <div 
+                      <div
                         className="relative group cursor-pointer w-full flex justify-center"
                         onClick={() => setImagenAmpliada(imagenProcesada)}
                       >
@@ -250,17 +251,29 @@ export default function Dashboard() {
                 <Zap size={18} className="text-emerald-500 mr-2" />
                 Acciones de IA
               </h3>
-              <button 
+
+              <button
                 onClick={analizarImagen}
                 disabled={!archivo || cargando}
                 className={`w-full py-4 rounded-2xl font-black transition flex items-center justify-center ${
-                  !archivo || cargando 
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                  : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-200'
+                  !archivo || cargando
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-emerald-500 text-white hover:bg-emerald-400 shadow-lg shadow-emerald-200'
                 }`}
               >
-                {cargando ? <Loader2 className="animate-spin" size={20} /> : "Iniciar Detección"}
+                {cargando
+                  ? <><Loader2 className="animate-spin mr-2" size={20} /> Analizando...</>
+                  : "Iniciar Detección"
+                }
               </button>
+
+              {/* Aviso visible cuando cargando */}
+              {cargando && (
+                <p className="text-xs text-slate-400 text-center mt-2">
+                  El análisis continúa aunque navegues a otra página.
+                </p>
+              )}
+
               {error && (
                 <div className="mt-3 p-3 bg-red-50 text-red-600 rounded-xl flex items-center text-xs font-medium">
                   <AlertCircle size={16} className="mr-2 flex-shrink-0" /> {error}
@@ -274,7 +287,7 @@ export default function Dashboard() {
                   <CheckCircle2 size={20} className="mr-2" />
                   <span className="font-black uppercase tracking-widest text-xs">Análisis Completado</span>
                 </div>
-                
+
                 <div className="text-center mb-5">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ángulo de Cobb</p>
                   <div className={`text-6xl font-black ${infoClinica.colorTexto}`}>
@@ -307,10 +320,7 @@ export default function Dashboard() {
                     </p>
                   </div>
 
-                  {/* --- Zona de botones --- */}
                   <div className="mt-4 flex flex-col gap-2">
-                    
-                    {/* Botón Guardar en Historial */}
                     <button
                       onClick={guardarEnHistorial}
                       disabled={guardando || guardado}
@@ -320,19 +330,17 @@ export default function Dashboard() {
                         : 'bg-slate-900 text-white hover:bg-emerald-600 shadow-slate-200'
                       }`}
                     >
-                      {guardando ? <Loader2 size={18} className="animate-spin"/> : guardado ? <CheckCircle2 size={18}/> : <Save size={18}/>}
+                      {guardando ? <Loader2 size={18} className="animate-spin" /> : guardado ? <CheckCircle2 size={18} /> : <Save size={18} />}
                       {guardado ? 'Guardado' : guardando ? 'Guardando…' : 'Guardar en Historial'}
                     </button>
 
-                    {/* Botón Descargar PDF */}
-                    <button 
+                    <button
                       onClick={manejarDescargaPDF}
                       className="w-full py-3 rounded-xl font-bold flex items-center justify-center transition-all bg-white text-slate-900 border-2 border-slate-200 hover:bg-slate-50 shadow-sm"
                     >
                       <Download className="mr-2" size={18} />
                       Descargar Informe Clínico (PDF)
                     </button>
-                    
                   </div>
                 </div>
               </div>
@@ -343,25 +351,20 @@ export default function Dashboard() {
 
       {/* --- VISOR DE PANTALLA COMPLETA --- */}
       {imagenAmpliada && (
-        <div 
+        <div
           className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-sm flex items-center justify-center p-4 lg:p-8 animate-in fade-in duration-200"
           onClick={() => setImagenAmpliada(null)}
         >
           <div className="relative max-w-[1920px] w-full h-full flex flex-col items-center justify-center">
-            {/* Botón de cerrar (esquina superior derecha) */}
-            <button 
+            <button
               className="absolute top-4 right-4 md:top-8 md:right-8 bg-white/10 hover:bg-red-500/80 text-white p-3 rounded-full transition-colors z-[110]"
-              onClick={(e) => {
-                e.stopPropagation();
-                setImagenAmpliada(null);
-              }}
+              onClick={(e) => { e.stopPropagation(); setImagenAmpliada(null); }}
             >
               <X size={28} />
             </button>
-            
-            <img 
-              src={imagenAmpliada} 
-              alt="Vista Ampliada" 
+            <img
+              src={imagenAmpliada}
+              alt="Vista Ampliada"
               className="max-h-[90vh] max-w-full object-contain rounded-2xl shadow-2xl ring-4 ring-white/10"
               onClick={(e) => e.stopPropagation()}
             />
