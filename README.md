@@ -3,6 +3,9 @@
 
 Este proyecto de fin de grado (TFG) consiste en una plataforma web capaz de procesar radiografías de columna vertebral para calcular el **Ángulo de Cobb** de forma automática. Utiliza un pipeline de Inteligencia Artificial en dos etapas: detección de vértebras mediante **Luminoth** y localización de landmarks con una arquitectura **DenseNet**.
 
+## Vídeo de demostración
+https://github.com/user-attachments/assets/cb69ac60-daaa-4be2-84bd-be6e5fdf621d
+
 ## 🛠 Tecnologías Utilizadas
 
 ### Backend (Motor de IA)
